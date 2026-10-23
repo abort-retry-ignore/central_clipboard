@@ -27,6 +27,16 @@ docker compose up -d --build
 
 The port is published only on `BIND_IP`, so the hub is reachable from the tailnet and nowhere else. To revoke a device, delete its entry from `CLIP_TOKENS` and run `docker compose up -d`. The clip persists in the `clip-data` volume.
 
+### Prebuilt image (amd64 + arm64)
+
+Every push to `main` that passes the tests publishes a multi-arch image to GitHub Container Registry, so the same tag runs on x86 servers and arm boards:
+
+```
+ghcr.io/abort-retry-ignore/central_clipboard-hub:latest   # also :sha-<short>
+```
+
+To use it instead of building locally, replace `build: ./hub` in `compose.yaml` with `image: ghcr.io/abort-retry-ignore/central_clipboard-hub:latest` and run `docker compose pull && docker compose up -d`. Building from source with `docker compose up -d --build` also works on either architecture.
+
 ## Add an Omarchy machine
 
 Each machine gets its own token from `CLIP_TOKENS`:
