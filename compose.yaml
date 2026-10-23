@@ -1,0 +1,23 @@
+services:
+  hub:
+    build: ./hub
+    restart: unless-stopped
+    init: true
+    environment:
+      CLIP_TOKENS: ${CLIP_TOKENS:?set CLIP_TOKENS in .env (see .env.example)}
+    # Publish only on this host's Tailscale address so the hub is reachable from
+    # the tailnet and nowhere else.
+    ports:
+      - "${BIND_IP:?set BIND_IP in .env to this host's tailscale ip}:${CLIP_PORT:-8766}:8766"
+    volumes:
+      - clip-data:/data
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  clip-data:
