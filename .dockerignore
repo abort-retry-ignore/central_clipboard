@@ -1,0 +1,9 @@
+.git
+.github
+.env
+.herdr-web-ui
+out
+agentbin/*.gz
+tests
+scripts
+*.md

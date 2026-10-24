@@ -1,10 +1,12 @@
 services:
   hub:
-    build: ./hub
+    build: .
     restart: unless-stopped
-    init: true
     environment:
-      CLIP_TOKENS: ${CLIP_TOKENS:?set CLIP_TOKENS in .env (see .env.example)}
+      CLIP_JOIN_PASSPHRASE: ${CLIP_JOIN_PASSPHRASE:-}
+      CLIP_TOKENS: ${CLIP_TOKENS:-}
+      CLIP_PERSIST_CLIP: ${CLIP_PERSIST_CLIP:-false}
+      CLIP_MAX_BYTES: ${CLIP_MAX_BYTES:-8388608}
     # Publish only on this host's Tailscale address so the hub is reachable from
     # the tailnet and nowhere else.
     ports:
@@ -12,8 +14,6 @@ services:
     volumes:
       - clip-data:/data
     read_only: true
-    tmpfs:
-      - /tmp
     cap_drop:
       - ALL
     security_opt:

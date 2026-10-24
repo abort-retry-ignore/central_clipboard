@@ -15,9 +15,10 @@ permissions:
 
 env:
   IMAGE: ghcr.io/${{ github.repository }}-hub
+  PLATFORMS: linux/amd64,linux/arm64,linux/arm/v7,linux/arm/v6,linux/mipsle
 
 jobs:
-  # The hub's tests run inside its image, natively on both architectures.
+  # gofmt, vet and the Go tests run inside the build, natively on both architectures.
   test:
     strategy:
       fail-fast: false
@@ -26,22 +27,19 @@ jobs:
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v7
-      - name: Build the hub image
-        run: docker build -t hub:test hub
-      - name: Unit tests
-        run: >
-          docker run --rm -v "$PWD:/src:ro" -w /src --entrypoint python
-          hub:test -B -m unittest discover -s tests -v
+      - run: docker build --target test .
 
-  # Hub + two agents on two headless Sway sessions + a fake phone.
+  # The hub and two agents that join through /install.sh, each on a headless Sway.
   e2e:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+      - name: Build the hub binary
+        run: docker build --target bin --output type=local,dest=out .
       - name: End-to-end test
         run: >
           docker run --rm --cap-add SYS_NICE -v "$PWD:/src:ro" alpine:3 sh -c
-          'apk add -q bash curl python3 sway wl-clipboard >/dev/null && bash /src/tests/e2e-wayland.sh'
+          'apk add -q bash curl sway wl-clipboard >/dev/null && bash /src/tests/e2e-wayland.sh'
 
   publish:
     needs: [test, e2e]
@@ -69,16 +67,22 @@ jobs:
       - id: build
         uses: docker/build-push-action@v7
         with:
-          context: hub
-          platforms: linux/amd64,linux/arm64
+          context: .
+          platforms: ${{ env.PLATFORMS }}
           push: true
           provenance: false
+          build-args: VERSION=${{ github.sha }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-      - name: Check the manifest covers both architectures
+      - name: The manifest covers every platform
         run: |
           docker buildx imagetools inspect "$IMAGE@${{ steps.build.outputs.digest }}" | tee manifest.txt
-          grep -q 'linux/amd64' manifest.txt
-          grep -q 'linux/arm64' manifest.txt
+          for p in ${PLATFORMS//,/ }; do grep -q "Platform: *$p\$" manifest.txt || { echo "missing $p"; exit 1; }; done
+      # mipsle is built and in the manifest but never executed in CI
+      - name: The binary starts on each platform QEMU can run
+        run: |
+          for p in linux/amd64 linux/arm64 linux/arm/v7 linux/arm/v6; do
+            printf '%s: ' "$p"; docker run --rm --platform "$p" "$IMAGE@${{ steps.build.outputs.digest }}" version
+          done
