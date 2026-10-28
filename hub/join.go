@@ -4,6 +4,7 @@ import (
 	"html/template"
 	"io/fs"
 	"net/http"
+	"net/url"
 )
 
 var joinTmpl = template.Must(template.New("join").Parse(`<!doctype html>
@@ -44,10 +45,11 @@ ol{padding-left:22px} li{margin:10px 0}
 <ol>
 <li>Copy your URL. It contains this phone's token, so keep it private.
 <input id="url" readonly><button type="button" id="copy">Copy URL</button></li>
-{{if .Single}}<li>Add the shortcut. Tap <b>Add Shortcut</b>, and when asked for the URL, paste it.
-<a class="btn" href="/shortcuts/Clipboard.shortcut">Clipboard</a></li>
+{{if .Single}}<li>Add the shortcut. Tap <b>Add to Shortcuts</b>. Safari asks to open Shortcuts: tap <b>Open</b>. When it asks for the hub URL, press and hold the field, tap <b>Paste</b>, then tap <b>Add Shortcut</b>.
+<a class="btn" href="{{.Import}}">Add to Shortcuts</a>
+<span class="mut">Nothing happened? <a href="/shortcuts/Clipboard.shortcut">Download the file</a> instead, then open it from Safari's downloads (the arrow icon) or the Files app.</span></li>
 <li>Use it: run <b>Clipboard</b> and choose <b>Send</b> to put this phone's clipboard on your other machines, or <b>Get</b> to bring theirs here.
-Put it on the Action Button or Back Tap for one-touch use.</li>{{else}}<li>Add both shortcuts. Tap <b>Add Shortcut</b>, and when asked for the URL, paste it.
+Put it on the Action Button or Back Tap for one-touch use.</li>{{else}}<li>Add both shortcuts. Tap each button and open the download from Safari's downloads (the arrow icon) or the Files app. When the Shortcuts app asks for the URL, paste it, then tap <b>Add Shortcut</b>.
 <a class="btn" href="/shortcuts/Send%20to%20Computer.shortcut">Send to Computer</a>
 <a class="btn" href="/shortcuts/Get%20from%20Computer.shortcut">Get from Computer</a></li>
 <li>Use them: run <b>Send to Computer</b> after copying on the phone, and <b>Get from Computer</b> to bring your other machines' clipboard to the phone.
@@ -110,8 +112,12 @@ func (s *Server) joinPage(w *respWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
 	_, err := fs.Stat(s.files, "shortcuts/Clipboard.shortcut") // our own menu shortcut, once it has been signed
+	// Apple's link that opens the Shortcuts app and imports from a URL. We build it from the
+	// address the client used, which is checked above, so it is safe to mark as a URL.
+	importLink := "shortcuts://import-shortcut?url=" + url.QueryEscape(hub+"/shortcuts/Clipboard.shortcut") + "&name=Clipboard"
 	joinTmpl.Execute(w, struct {
 		Hub    string
 		Single bool
-	}{hub, err == nil})
+		Import template.URL
+	}{hub, err == nil, template.URL(importLink)})
 }

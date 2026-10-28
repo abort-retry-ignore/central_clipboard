@@ -613,10 +613,21 @@ func TestJoinPageOffersOurShortcutOnceItIsSigned(t *testing.T) {
 	}
 
 	e.srv.files = fstest.MapFS{"shortcuts/Clipboard.shortcut": {Data: []byte("AEA1signed")}}
-	_, b = e.do("GET", "/join", nil, "")
+	_, b = e.do("GET", "/join", nil, "", "Host", "hub:8766")
 	page := string(b)
 	if !strings.Contains(page, `href="/shortcuts/Clipboard.shortcut"`) || strings.Contains(page, "Send%20to%20Computer.shortcut") {
 		t.Fatal("with our shortcut the page should offer only that one")
+	}
+	// the one-tap link is Apple's import scheme, with the shortcut's address as an escaped parameter
+	want := `href="shortcuts://import-shortcut?url=http%3A%2F%2Fhub%3A8766%2Fshortcuts%2FClipboard.shortcut&amp;name=Clipboard"`
+	if !strings.Contains(page, want) {
+		t.Fatalf("the page lacks %s", want)
+	}
+	if strings.Contains(page, "ZgotmplZ") {
+		t.Fatal("the template rewrote a link it did not trust")
+	}
+	if strings.Contains(page, "Tap <b>Add Shortcut</b>, and when asked") {
+		t.Fatal("the old instructions are back; the button is not called Add Shortcut")
 	}
 	r, body := e.do("GET", "/shortcuts/Clipboard.shortcut", nil, "")
 	status(t, r.StatusCode, 200)
